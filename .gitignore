@@ -129,3 +129,4 @@ dmypy.json
 .pyre/
 B08.tif
 data/
+*.tif
