@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import fire
@@ -31,12 +32,11 @@ class Model(pl.LightningModule):
             nn.ReLU(inplace=True),
             nn.Dropout(0.2),
             nn.Linear(128, classes),
-            nn.Sigmoid(),
         )
         self.model = model
 
     def forward(self, x):
-        return torch.relu(self.model(x.view(x.size(0), -1)))
+        return self.model(x)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -59,7 +59,7 @@ class Model(pl.LightningModule):
         return torch.optim.Adam(self.parameters(), lr=0.001)
 
 
-class Datamodule:
+class Datamodule(pl.LightningDataModule):
     def __init__(self, data_dir, bs=64):
         super().__init__()
         self.trsfms = transforms.Compose(
@@ -74,6 +74,8 @@ class Datamodule:
         )
         self.data_dir = data_dir
         self.bs = bs
+
+    def setup(self, stage=None):
         df = pd.read_csv(Path(self.data_dir) / "train_v2.csv")
         df["list_tags"] = df.tags.str.split(" ")
         encoder = MultiLabelBinarizer()
@@ -93,21 +95,25 @@ class Datamodule:
             path=Path(self.data_dir) / "train",
         )
 
+    def train_dataloader(self):
+        return DataLoader(
+            self.train_dataset,
+            batch_size=64,
+            shuffle=True,
+            num_workers=os.cpu_count(),
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_dataset,
+            batch_size=64,
+            num_workers=os.cpu_count(),
+        )
+
 
 def runner(path):
     model = Model()
     data = Datamodule(data_dir=path)
-    train_loader = DataLoader(
-        data.train_dataset,
-        batch_size=64,
-        shuffle=True,
-    )
-    val_dataloader = DataLoader(
-        data.val_dataset,
-        batch_size=64,
-        shuffle=True,
-    )
-
     checkpoint_callback = ModelCheckpoint(
         monitor="val_loss",
         dirpath="ckpt",
@@ -122,8 +128,9 @@ def runner(path):
         max_epochs=10,
         fast_dev_run=True,
         enable_checkpointing=True,
+        log_every_n_steps=1,
     )
-    trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_dataloader)
+    trainer.fit(model, data)
 
 
 if __name__ == "__main__":

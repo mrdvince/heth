@@ -2,6 +2,7 @@ import os
 
 from PIL import Image
 from torch.utils.data import Dataset
+import torch
 
 
 class AmazonDataset(Dataset):
@@ -24,4 +25,4 @@ class AmazonDataset(Dataset):
         img = Image.open(file_path).convert("RGB")
         label = self.ohe_tags[idx]
         img = self.transform(img)
-        return img, label
+        return img, label.astype("float32")
