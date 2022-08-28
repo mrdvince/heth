@@ -121,12 +121,12 @@ def runner(path):
         auto_insert_metric_name=True,
     )
     trainer = pl.Trainer(
-        callbacks=[checkpoint_callback, TQDMProgressBar(refresh_rate=20)],
+        callbacks=[checkpoint_callback],
         accelerator="gpu",
         enable_progress_bar=True,
         enable_model_summary=True,
         max_epochs=10,
-        fast_dev_run=True,
+        fast_dev_run=False,
         enable_checkpointing=True,
         log_every_n_steps=1,
     )
