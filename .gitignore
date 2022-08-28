@@ -132,3 +132,4 @@ data/
 *.tif
 .idea/
 .DS_Store
+lightning_logs/
