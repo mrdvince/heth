@@ -131,3 +131,4 @@ B08.tif
 data/
 *.tif
 .idea/
+.DS_Store
