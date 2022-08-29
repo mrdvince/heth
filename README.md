@@ -1,19 +1,16 @@
+# Heth 🔨
+
+> Classification using Sentinel2 dataset ( pretty much deeplearning from space 😅)
+
+This an attempt at classification focusing on agriculture and settlements(maybe) using [Sentinel-2 Cloud-Optimized GeoTIFFs](https://aws.amazon.com/marketplace/pp/prodview-ykj5gyumkzlme?sr=0-7&ref_=beagle&applicationId=AWSMPContessa#usage)
+
+For classification we need some labels so using an existing dataset of satellite images with classes that suit this from the Kaggle [Understanding the amazon from space data](https://www.kaggle.com/competitions/planet-understanding-the-amazon-from-space).
+
+# Getting started
+
+## Install some dependancies and do some imports
 ```python
-from IPython.display import display, HTML
-display(HTML("<style>.container { width:95% !important; }</style>"))
-```
-
-
-<style>.container { width:95% !important; }</style>
-
-
-
-```python
-# %pip install numpy
-# %pip install matplotlib
-# %pip install rasterio
-# %pip install sat-search pyproj rasterio[s3] pyproj
-# %pip install torchgeo
+pip install numpy matplotlib sat-search pyproj rasterio pyproj
 ```
 
 
@@ -29,16 +26,16 @@ import torch
 import numpy as np
 ```
 
+## Region of interest
 
+[geojson.io](https://geojson.io/) makes it simple to select a region on the map and save the feautures on file.
+
+Then using this file and `satsearch` you can get a tiff of the region and time.
+#### Read json and search
 ```python
-file_path = "../data/map.geojson"
-file_content = load(open(file_path))
+file_content = load(open("../data/map.geojson"))
 geometry = file_content["features"][0]["geometry"]
 timeRange = '2022-01-01/2022-08-27'
-```
-
-
-```python
 SentinelSearch = satsearch.Search.search( 
     url = "https://earth-search.aws.element84.com/v0",
     intersects = geometry,
@@ -47,28 +44,20 @@ SentinelSearch = satsearch.Search.search(
 
 items = SentinelSearch.items()
 ```
+> Using `sentinel-s2-l2a-cogs` since it returns URLs instead of s3 object paths (personal preference over s3 paths)
 
+
+
+### Get a preview
 
 ```python
-keys = set([k for i in items for k in i.assets])
-```
-
-
-```python
-# Visualize some items thumbnail
 Image(items[0].assets['thumbnail']['href'])
 ```
-
-
-
-
     
 ![jpeg](screenshots/output_6_0.jpg)
     
 
-
-
-
+## Bands
 ```python
 # some bands
 bands = ['B07', 'B08', 'B8A']
@@ -84,39 +73,20 @@ for idx in range(len(bands)):
 ![png](screenshots/output_7_0.png)
     
 
-
+To get a true color image we need to combine the images from bands (B04, B03, B02) these bands are red, green, and blue respectively
 
 ```python
-# Some band combinations
-# agriculture and true color bands B11, B8, B2, B4, B3, B2
 
 # Natural color
 R = items[0].assets['B04']['href']
 G = items[0].assets['B03']['href']
 B = items[0].assets['B02']['href']
-
-# agriculture
-B8 = items[0].assets['B08']['href']
-B11 = items[0].assets['B11']['href']
-
-items[0].assets['B04']['proj:shape']
 ```
 
-
-
-
-    [10980, 10980]
-
-
-
-
+### e.g Info in a band
 ```python
 items[0].assets['B04']
 ```
-
-
-
-
     {'title': 'Band 4 (red)',
      'type': 'image/tiff; application=geotiff; profile=cloud-optimized',
      'roles': ['data'],
@@ -130,10 +100,9 @@ items[0].assets['B04']
      'proj:transform': [10, 0, 300000, 0, -10, 100020, 0, 0, 1]}
 
 
-
+### Process and save natural color tiff
 
 ```python
-# Process and save natural color tiff
 R = rio.open(items[0].assets['B04']['href']) # get info from red band
 true_color = rio.open('../data/sentinel/sample.tiff','w',driver='Gtiff',
                          width=R.width, height=R.height,
@@ -149,75 +118,18 @@ true_color.close()
 ```
 
 
-```python
-R,G,B
-```
+Once the `tiff` image is saved open it with something that can read this type of "image" e.g [QGIS](https://qgis.org/en/site/forusers/download.html) and you should be able to deselect the channels or etc.
 
+> The resulted image will quiet big
 
+#### Or you could try visualize it on a notebook either way
 
-
-    (<open DatasetReader name='https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/37/N/CA/2022/8/S2B_37NCA_20220826_0_L2A/B04.tif' mode='r'>,
-     'https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/37/N/CA/2022/8/S2B_37NCA_20220826_0_L2A/B03.tif',
-     'https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/37/N/CA/2022/8/S2B_37NCA_20220826_0_L2A/B02.tif')
-
-
-
+Open the image with rasterio and use matplotlib to plot it.
 
 ```python
 image = rio.open('../data/sentinel/sample.tiff')
-```
-
-
-```python
-np.int32(image.read())
-```
-
-
-
-
-    array([[[3752, 3712, 3824, ..., 2060, 1986, 1882],
-            [3544, 3584, 3720, ..., 2040, 1678, 1778],
-            [3444, 3384, 3536, ..., 2022, 1692, 1882],
-            ...,
-            [2466, 2318, 2182, ..., 4276, 4320, 4272],
-            [2132, 2010, 2060, ..., 4020, 4048, 3960],
-            [1728, 1802, 2194, ..., 3572, 3680, 3660]],
-    
-           [[3240, 3208, 3344, ..., 1432, 1304, 1314],
-            [3184, 3052, 3100, ..., 1368, 1162, 1194],
-            [2996, 2742, 2786, ..., 1366, 1210, 1278],
-            ...,
-            [2792, 2620, 2564, ..., 3876, 3952, 3916],
-            [2548, 2342, 2410, ..., 3376, 3472, 3520],
-            [2142, 2128, 2414, ..., 2980, 3044, 3296]],
-    
-           [[3168, 3094, 3052, ..., 1056,  983,  936],
-            [3062, 2880, 2740, ..., 1082,  880,  904],
-            [2842, 2514, 2386, ..., 1054,  907,  962],
-            ...,
-            [2976, 2764, 2744, ..., 3504, 3552, 3604],
-            [2806, 2536, 2750, ..., 3136, 3168, 3328],
-            [2452, 2298, 2566, ..., 2854, 3044, 3276]]], dtype=int32)
-
-
-
-
-```python
-
-```
-
-
-```python
 x = torch.from_numpy(np.int32(image.read()))
-```
-
-
-```python
 x = x.permute(1,2,0)
-```
-
-
-```python
 x = torch.clamp(x / 2000, min=0, max=1)
 ```
 
@@ -240,75 +152,4 @@ ax.set_title("Image")
     
 ![png](screenshots/output_18_1.png)
     
-
-
-
-```python
-B08 = items[0].assets['B08']['href']
-R = items[0].assets['B04']['href']
-B08, R
-```
-
-
-
-
-    ('https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/37/N/CA/2022/8/S2B_37NCA_20220826_0_L2A/B08.tif',
-     'https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/37/N/CA/2022/8/S2B_37NCA_20220826_0_L2A/B04.tif')
-
-
-
-
-```python
-
-```
-
-
-```python
-# (B08 - B04) / ((B08 + B04) + 1e-10)
-# NDVI stuff
-B04 = rio.open(B08).read()
-B08 = rio.open(R).read()
-```
-
-
-```python
-ndvi = (B08.astype(float) - B04.astype(float)) / ((B08.astype(float) + B04.astype(float)) + 1e-10)
-show(ndvi, cmap="RdYlGn")
-```
-
-
     
-![png](screenshots/output_22_0.png)
-    
-
-
-
-
-
-    <AxesSubplot:>
-
-
-
-
-```python
-ndvi = (B08.astype(float) - B04.astype(float)) / ((B08.astype(float) + B04.astype(float)))
-show(ndvi, cmap="RdYlGn")
-```
-
-
-    
-![png](screenshots/output_23_0.png)
-    
-
-
-
-
-
-    <AxesSubplot:>
-
-
-
-
-```python
-
-```
