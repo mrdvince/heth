@@ -133,3 +133,4 @@ data/
 .idea/
 .DS_Store
 lightning_logs/
+ckpt/
