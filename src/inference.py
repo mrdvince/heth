@@ -5,6 +5,7 @@ import torch
 from torchvision import transforms
 
 from train import Model
+import pandas as pd
 
 
 def load(model_path):
@@ -25,6 +26,11 @@ def inference(model_path, tiff_path):
     with torch.no_grad():
         y_hat = model(img.unsqueeze(0))
         y_hat = y_hat.detach().float().cpu().numpy()
+
+    df = pd.read_csv(Path(data_dir) / "train_v2.csv")
+    df["list_tags"] = df.tags.str.split(" ")
+    encoder = MultiLabelBinarizer()
+    tags = encoder.fit_transform(train_data.list_tags.values)
 
     return (y_hat > 0.75).astype(float)
 
